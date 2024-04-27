@@ -1,0 +1,21 @@
+{
+    "name": "warden",
+    "entity": {
+        "type": "warden",
+        "distance": {
+            "max": 40,
+            "fade": 20
+        }
+    },
+    "mute": 1,
+    "sounds": [
+        {
+            "name": "warden",
+            "mute": 0.8,
+            "fade-volume": 0.01,
+            "files": [
+                "ambientsounds:animals.warden"
+            ]
+        }
+    ]
+}

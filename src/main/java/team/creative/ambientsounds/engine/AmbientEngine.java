@@ -1,0 +1,469 @@
+package team.creative.ambientsounds.engine;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+import org.apache.commons.io.IOUtils;
+
+import com.google.common.base.Charsets;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.annotations.SerializedName;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.world.level.Level;
+import team.creative.ambientsounds.AmbientSounds;
+import team.creative.ambientsounds.block.AmbientBlockGroup;
+import team.creative.ambientsounds.dimension.AmbientDimension;
+import team.creative.ambientsounds.environment.AmbientEnvironment;
+import team.creative.ambientsounds.environment.feature.AmbientFeature;
+import team.creative.ambientsounds.environment.pocket.AirPocketGroup;
+import team.creative.ambientsounds.region.AmbientRegion;
+import team.creative.ambientsounds.sound.AmbientSound;
+import team.creative.ambientsounds.sound.AmbientSoundEngine;
+import team.creative.ambientsounds.sound.AmbientSoundGroup;
+import team.creative.creativecore.common.util.type.list.Pair;
+
+public class AmbientEngine {
+    
+    public static final ResourceLocation CONFIG_LOCATION = new ResourceLocation(AmbientSounds.MODID, "config.json");
+    public static final String ENGINE_LOCATION = "engine.json";
+    public static final String DIMENSIONS_LOCATION = "dimensions";
+    public static final String REGIONS_LOCATION = "regions";
+    public static final String SOUNDGROUPS_LOCATION = "soundgroups";
+    public static final String BLOCKGROUPS_LOCATION = "blockgroups";
+    public static final String FEATURES_LOCATION = "features";
+    
+    public static final Gson GSON = new GsonBuilder().registerTypeAdapter(ResourceLocation.class, new JsonDeserializer<ResourceLocation>() {
+        
+        @Override
+        public ResourceLocation deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+            if (json.isJsonPrimitive() && json.getAsJsonPrimitive().isString())
+                return new ResourceLocation(json.getAsString());
+            return null;
+        }
+    }).create();
+    
+    private static String loadedEngine;
+    
+    public static boolean hasLoadedAtLeastOnce() {
+        return loadedEngine != null;
+    }
+    
+    public static boolean hasEngineChanged(String newEngine) {
+        return loadedEngine == null || !loadedEngine.equals(newEngine);
+    }
+    
+    public static AmbientEngine attemptToLoadEngine(AmbientSoundEngine soundEngine, ResourceManager manager, String name) throws Exception {
+        InputStream engineInput = manager.getResource(new ResourceLocation(AmbientSounds.MODID, name + "/" + ENGINE_LOCATION)).orElseThrow().open();
+        try {
+            AmbientEngine engine = GSON.fromJson(JsonParser.parseString(IOUtils.toString(engineInput, Charsets.UTF_8)).getAsJsonObject(), AmbientEngine.class);
+            
+            if (!engine.name.equals(name))
+                throw new Exception("Invalid engine name");
+            
+            engine.dimensions = loadMultiple(manager, new ResourceLocation(AmbientSounds.MODID, name + "/" + DIMENSIONS_LOCATION), AmbientDimension.class, x -> x.stack,
+                (dimension, dimensionName, json) -> {
+                    dimension.name = dimensionName;
+                    dimension.load(engine, GSON, manager, json);
+                    
+                    if (dimension.loadedRegions != null) {
+                        int i = 0;
+                        for (AmbientRegion region : dimension.loadedRegions.values()) {
+                            if (engine.checkRegion(dimension, i, region))
+                                engine.addRegion(region);
+                            i++;
+                        }
+                    }
+                });
+            
+            engine.generalRegions = loadMultiple(manager, new ResourceLocation(AmbientSounds.MODID, name + "/" + REGIONS_LOCATION), AmbientRegion.class, x -> x.stack,
+                (region, regionName, json) -> {
+                    region.name = regionName;
+                    region.load(engine, GSON, manager);
+                    engine.addRegion(region);
+                });
+            
+            engine.blockGroups = new LinkedHashMap<>();
+            String blockGroupPath = name + "/" + BLOCKGROUPS_LOCATION;
+            int blockGroupSubstring = blockGroupPath.length() + 1;
+            Map<ResourceLocation, List<Resource>> files = manager.listResourceStacks(blockGroupPath, x -> x.getNamespace().equals(AmbientSounds.MODID));
+            for (Entry<ResourceLocation, List<Resource>> file : files.entrySet()) {
+                AmbientBlockGroup group = new AmbientBlockGroup();
+                String blockGroupName = file.getKey().getPath().substring(blockGroupSubstring).replace(".json", "");
+                for (Resource resource : file.getValue()) {
+                    InputStream input = resource.open();
+                    try {
+                        try {
+                            group.add(GSON.fromJson(JsonParser.parseString(IOUtils.toString(input, Charsets.UTF_8)), String[].class));
+                        } catch (JsonSyntaxException e) {
+                            AmbientSounds.LOGGER.error("Failed to load blockgroup " + file.getKey().toString() + " " + resource.sourcePackId(), e);
+                        }
+                    } finally {
+                        input.close();
+                    }
+                }
+                engine.blockGroups.put(blockGroupName, group);
+            }
+            
+            engine.soundGroups = loadMultiple(manager, new ResourceLocation(AmbientSounds.MODID, name + "/" + SOUNDGROUPS_LOCATION), AmbientSoundGroup.class, x -> x.stack,
+                (soundGroup, soundGroupName, json) -> {});
+            
+            engine.features = loadMultiple(manager, new ResourceLocation(AmbientSounds.MODID, name + "/" + FEATURES_LOCATION), AmbientFeature.class, x -> x.stack,
+                (feature, featureName, json) -> feature.name = featureName);
+            
+            engine.silentDim = new AmbientDimension();
+            engine.silentDim.name = "silent";
+            engine.silentDim.volumeSetting = 0;
+            engine.silentDim.mute = true;
+            
+            engine.init();
+            
+            engine.soundEngine = soundEngine;
+            
+            AmbientSounds.LOGGER.info(
+                "Loaded AmbientEngine '{}' v{}. {} dimension(s), {} features, {} blockgroups, {} soundgroups, {} regions, {} sounds, {} solids and {} biome types", engine.name,
+                engine.version, engine.dimensions.size(), engine.features.size(), engine.blockGroups.size(), engine.soundGroups.size(), engine.allRegions.size(), engine.allSounds
+                        .size(), engine.solids.length, engine.biomeTypes.length);
+            return engine;
+        } finally {
+            engineInput.close();
+        }
+    }
+    
+    public static <T> void applyStackType(T base, T newBase, AmbientStackType stack) {
+        for (Field field : base.getClass().getFields()) {
+            if (Modifier.isTransient(field.getModifiers()) || Modifier.isStatic(field.getModifiers()) || Modifier.isFinal(field.getModifiers()))
+                continue;
+            
+            try {
+                stack.apply(base, field, newBase);
+            } catch (IllegalArgumentException | IllegalAccessException e) {}
+        }
+    }
+    
+    public static <T> LinkedHashMap<String, T> loadMultiple(ResourceManager manager, ResourceLocation path, Class<T> clazz, Function<T, AmbientStackType> type, AmbientLoader<T> setNameAndInit) throws IOException {
+        LinkedHashMap<String, T> map = new LinkedHashMap<>();
+        int substring = path.getPath().length() + 1;
+        Map<ResourceLocation, List<Resource>> files = manager.listResourceStacks(path.getPath(), x -> x.getNamespace().equals(path.getNamespace()));
+        for (Entry<ResourceLocation, List<Resource>> file : files.entrySet()) {
+            T base = null;
+            String name = file.getKey().getPath().substring(substring).replace(".json", "");
+            for (Resource resource : file.getValue()) {
+                InputStream input = resource.open();
+                try {
+                    try {
+                        JsonElement json = JsonParser.parseString(IOUtils.toString(input, Charsets.UTF_8));
+                        T newBase = GSON.fromJson(json, clazz);
+                        if (base == null)
+                            base = newBase;
+                        else {
+                            AmbientStackType stack = type.apply(newBase);
+                            if (stack == AmbientStackType.overwrite)
+                                base = newBase;
+                            else
+                                applyStackType(base, newBase, stack);
+                        }
+                        setNameAndInit.setNameAndLoad(base, name, json);
+                        map.put(name, base);
+                    } catch (AmbientEngineLoadException | JsonSyntaxException e) {
+                        AmbientSounds.LOGGER.error("Failed to load " + clazz.getSimpleName() + " in " + file.getKey().toString() + " " + resource.sourcePackId(), e);
+                    }
+                } finally {
+                    input.close();
+                }
+            }
+        }
+        return map;
+    }
+    
+    public static AmbientEngine loadAmbientEngine(AmbientSoundEngine soundEngine) {
+        try {
+            ResourceManager manager = Minecraft.getInstance().getResourceManager();
+            
+            InputStream input = manager.getResource(CONFIG_LOCATION).orElseThrow().open();
+            try {
+                AmbientEngineConfig config = GSON.fromJson(JsonParser.parseString(IOUtils.toString(input, Charsets.UTF_8)).getAsJsonObject(), AmbientEngineConfig.class);
+                
+                AmbientSounds.CONFIG.engines.updateArray(config.engines, config.defaultEngine);
+                
+                try {
+                    loadedEngine = AmbientSounds.CONFIG.engines.get();
+                    return attemptToLoadEngine(soundEngine, manager, AmbientSounds.CONFIG.engines.get());
+                } catch (Exception e) {
+                    AmbientSounds.LOGGER.error("Sound engine {} could not be loaded", AmbientSounds.CONFIG.engines.get(), e);
+                }
+            } finally {
+                input.close();
+            }
+            
+            throw new Exception();
+        } catch (Exception e) {
+            AmbientSounds.LOGGER.error("Not sound engine could be loaded, no sounds will be played!");
+        }
+        
+        return null;
+    }
+    
+    protected transient LinkedHashMap<String, AmbientDimension> dimensions;
+    
+    protected transient LinkedHashMap<String, AmbientRegion> allRegions = new LinkedHashMap<>();
+    protected transient LinkedHashMap<String, AmbientRegion> generalRegions;
+    protected transient List<AmbientRegion> activeRegions = new ArrayList<>();
+    
+    protected transient LinkedHashMap<String, AmbientSound> allSounds = new LinkedHashMap<>();
+    
+    public transient LinkedHashMap<String, AmbientBlockGroup> blockGroups;
+    public transient LinkedHashMap<String, AmbientSoundGroup> soundGroups;
+    public transient LinkedHashMap<String, AmbientFeature> features;
+    
+    protected transient List<String> silentDimensions = new ArrayList<>();
+    
+    public transient AmbientSoundEngine soundEngine;
+    
+    protected transient AmbientDimension silentDim;
+    
+    protected transient List<Double> airPocketDistanceFactor;
+    public transient int maxAirPocketCount;
+    
+    public transient AmbientBlockGroup considerSolid;
+    
+    public transient double squaredBiomeDistance;
+    
+    public AmbientRegion getRegion(String name) {
+        return allRegions.get(name);
+    }
+    
+    public String name;
+    
+    public String version;
+    
+    @SerializedName(value = "environment-tick-time")
+    public int environmentTickTime = 40;
+    @SerializedName(value = "sound-tick-time")
+    public int soundTickTime = 4;
+    @SerializedName(value = "block-scan-distance")
+    public int blockScanDistance = 40;
+    
+    @SerializedName(value = "average-height-scan-distance")
+    public int averageHeightScanDistance = 2;
+    @SerializedName(value = "average-height-scan-count")
+    public int averageHeightScanCount = 5;
+    
+    @SerializedName(value = "biome-scan-distance")
+    public int biomeScanDistance = 5;
+    @SerializedName(value = "biome-scan-count")
+    public int biomeScanCount = 3;
+    
+    @SerializedName(value = "air-pocket-count")
+    public int airPocketCount = 50000;
+    @SerializedName(value = "air-pocket-distance")
+    public int airPocketDistance = 25;
+    @SerializedName(value = "air-pocket-groups")
+    public AirPocketGroup[] airPocketGroups = new AirPocketGroup[0];
+    
+    public String[] solids = {};
+    
+    @SerializedName(value = "biome-types")
+    public String[] biomeTypes = {};
+    @SerializedName(value = "default-biome-type")
+    public String defaultBiomeType;
+    
+    @SerializedName(value = "fade-volume")
+    public Double fadeVolume = 0.005D;
+    
+    @SerializedName(value = "fade-pitch")
+    public Double fadePitch = 0.005D;
+    
+    protected boolean checkRegion(AmbientDimension dimension, int i, AmbientRegion region) {
+        if (region.name == null || region.name.isEmpty()) {
+            if (dimension == null)
+                AmbientSounds.LOGGER.error("Found invalid region at {}", i);
+            else
+                AmbientSounds.LOGGER.error("Found invalid region in '{}' at {}", dimension.name, i);
+            return false;
+        }
+        return true;
+    }
+    
+    protected void addRegion(AmbientRegion region) {
+        allRegions.put(region.name, region);
+        region.volumeSetting = 1;
+        
+        String prefix = (region.dimension != null ? region.dimension.name + "." : "") + region.name + ".";
+        if (region.sounds != null) {
+            for (AmbientSound sound : region.loadedSounds.values()) {
+                allSounds.put(prefix + sound.name, sound);
+                sound.fullName = prefix + sound.name;
+                sound.volumeSetting = 1;
+            }
+        }
+    }
+    
+    public AmbientDimension getDimension(Level level) {
+        String dimensionTypeName = level.dimension().location().toString();
+        if (silentDimensions.contains(dimensionTypeName))
+            return silentDim;
+        
+        for (AmbientDimension dimension : dimensions.values())
+            if (dimension.is(level))
+                return dimension;
+            
+        return silentDim;
+    }
+    
+    public void stopEngine() {
+        if (!activeRegions.isEmpty()) {
+            for (AmbientRegion region : activeRegions)
+                region.deactivate();
+            activeRegions.clear();
+        }
+    }
+    
+    public int airPocketVolume(int r) {
+        int res = 0;
+        for (int i = r; r > 0; r--) {
+            int f;
+            if (i == r)
+                f = 1;
+            else if (i == r - 1)
+                f = 4;
+            else if (i == r - 2)
+                f = 7;
+            else
+                f = 8;
+            res += (f * r * (r + 1) * 0.5);
+        }
+        return res;
+    }
+    
+    public void consumeSoundGroups(String[] groups, Consumer<AmbientSound> consumer) {
+        for (int i = 0; i < groups.length; i++) {
+            AmbientSoundGroup group = soundGroups.get(groups[i]);
+            if (group == null || group.sounds == null)
+                continue;
+            for (AmbientSound sound : group.sounds)
+                consumer.accept(sound);
+        }
+    }
+    
+    public void init() {
+        airPocketDistanceFactor = new ArrayList<>();
+        for (int i = 0; i < airPocketGroups.length; i++)
+            for (int subDistance = 0; subDistance < airPocketGroups[i].distance; subDistance++)
+                airPocketDistanceFactor.add(airPocketGroups[i].weight);
+            
+        maxAirPocketCount = airPocketVolume(airPocketDistance);
+        
+        for (Entry<String, AmbientSoundGroup> group : soundGroups.entrySet())
+            if (group.getValue().sounds != null)
+                for (AmbientSound sound : group.getValue().sounds) {
+                    sound.name = group.getKey() + "." + sound.name;
+                    allSounds.put(sound.name, sound);
+                    sound.init(this);
+                }
+            
+        for (AmbientDimension dimension : dimensions.values())
+            dimension.init(this);
+        
+        for (AmbientRegion region : allRegions.values())
+            region.init(this);
+        
+        considerSolid = new AmbientBlockGroup();
+        if (solids != null)
+            considerSolid.add(solids);
+        
+        squaredBiomeDistance = Math.pow(biomeScanCount * biomeScanDistance * 2, 2); // It is actually twice the distance, so the furthest away biome still has half of the volume
+        
+        onClientLoad();
+    }
+    
+    public void onClientLoad() {
+        blockGroups.values().forEach(x -> x.onClientLoad());
+        considerSolid.onClientLoad();
+    }
+    
+    public double airWeightFactor(int distance) {
+        if (distance >= airPocketDistanceFactor.size())
+            return 0;
+        return airPocketDistanceFactor.get(distance);
+    }
+    
+    public void tick(AmbientEnvironment env) {
+        if (env.dimension.loadedRegions != null)
+            for (AmbientRegion region : env.dimension.loadedRegions.values()) {
+                if (region.tick(env)) {
+                    if (!region.isActive()) {
+                        region.activate();
+                        activeRegions.add(region);
+                    }
+                } else if (region.isActive()) {
+                    region.deactivate();
+                    activeRegions.remove(region);
+                }
+            }
+        
+        for (AmbientRegion region : generalRegions.values()) {
+            if (region.tick(env)) {
+                if (!region.isActive()) {
+                    region.activate();
+                    activeRegions.add(region);
+                }
+            } else if (region.isActive()) {
+                region.deactivate();
+                activeRegions.remove(region);
+            }
+        }
+    }
+    
+    public void fastTick(AmbientEnvironment env) {
+        soundEngine.tick();
+        if (!activeRegions.isEmpty()) {
+            for (Iterator<AmbientRegion> iterator = activeRegions.iterator(); iterator.hasNext();) {
+                AmbientRegion region = iterator.next();
+                if (!region.fastTick(env)) {
+                    region.deactivate();
+                    iterator.remove();
+                }
+            }
+        }
+        
+    }
+    
+    public void changeDimension(AmbientEnvironment env, AmbientDimension newDimension) {
+        if (env.dimension == null || env.dimension.loadedRegions == null)
+            return;
+        
+        for (AmbientRegion region : env.dimension.loadedRegions.values()) {
+            if (region.isActive()) {
+                region.deactivate();
+                activeRegions.remove(region);
+            }
+        }
+    }
+    
+    public void collectDetails(List<Pair<String, Object>> details) {
+        details.add(new Pair<>("", name + " v" + version));
+    }
+    
+}

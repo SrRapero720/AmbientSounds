@@ -7,7 +7,7 @@ import java.util.List;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.SoundManager;
-import team.creative.ambientsounds.AmbientSound.SoundStream;
+import team.creative.ambientsounds.sound.AmbientSound.SoundStream;
 
 public class AmbientSoundEngine {
     

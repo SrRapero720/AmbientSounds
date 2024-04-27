@@ -1,0 +1,21 @@
+{
+    "name": "mesa",
+    "biomes": [
+        "mesa",
+        "badlands",
+        "lush desert",
+        "outback",
+        "wasteland",
+        "steppe",
+        "arid highland",
+        "canyon"
+    ],
+    "sounds": [
+        {
+            "name": "wind-mesa",
+            "files": [
+                "ambientsounds:wind.mesa"
+            ]
+        }
+    ]
+}

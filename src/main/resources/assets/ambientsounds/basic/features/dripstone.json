@@ -1,0 +1,8 @@
+{
+    "name": "dripstone",
+    "groups": [
+        "dripstone"
+    ],
+    "low-count": 3,
+    "high-count": 5
+}

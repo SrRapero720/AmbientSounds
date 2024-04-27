@@ -1,0 +1,16 @@
+{
+    "name": "underworld",
+    "absolute-height": {
+        "max": -64,
+        "fade": 5
+    },
+    "sounds": [
+        {
+            "name": "underworld",
+            "files": [
+                "ambientsounds:cave.underworld"
+            ],
+            "volume": 0.6
+        }
+    ]
+}

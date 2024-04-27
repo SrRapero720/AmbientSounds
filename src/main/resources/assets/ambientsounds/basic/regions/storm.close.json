@@ -1,0 +1,30 @@
+{
+    "name": "storm.close",
+    "storming": true,
+    "overall-raining": true,
+    "bad-regions": [
+        "cold"
+    ],
+    "regions": [
+        "surface"
+    ],
+    "sounds": [
+        {
+            "name": "storm-close",
+            "category": "weather",
+            "files": [
+                "ambientsounds:weather.storm-close"
+            ]
+        },
+        {
+            "name": "wind",
+            "category": "weather",
+            "files": [
+                "ambientsounds:wind.wind"
+            ],
+            "outside": true,
+            "volume": 0.4,
+            "mute": 0.3
+        }
+    ]
+}

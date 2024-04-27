@@ -25,9 +25,9 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
-import team.creative.ambientsounds.AmbientCondition.AmbientMinMaxFadeCondition;
-import team.creative.ambientsounds.AmbientEngine;
-import team.creative.ambientsounds.env.AmbientEnvironment;
+import team.creative.ambientsounds.condition.AmbientCondition.AmbientMinMaxFadeCondition;
+import team.creative.ambientsounds.engine.AmbientEngine;
+import team.creative.ambientsounds.environment.AmbientEnvironment;
 
 public class AmbientEntityCondition {
     

@@ -1,0 +1,8 @@
+{
+    "name": "rock",
+    "groups": [
+        "rock"
+    ],
+    "low-weight": 0.6,
+    "high-weight": 0.75
+}

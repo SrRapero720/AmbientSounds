@@ -1,0 +1,11 @@
+{
+    "name": "forest.roofed",
+    "bad-regions": [
+        "rain"
+    ],
+    "biomes": [
+        "roofed*forest",
+        "dark_forest",
+        "blooming_valley"
+    ]
+}
