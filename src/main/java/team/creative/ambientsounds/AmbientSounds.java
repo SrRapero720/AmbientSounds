@@ -46,7 +46,6 @@ public class AmbientSounds implements ClientLoader {
     @Override
     public void onInitializeClient() {
         ICreativeLoader loader = CreativeCore.loader();
-        loader.registerDisplayTest(() -> loader.ignoreServerNetworkConstant(), (a, b) -> true);
         
         TICK_HANDLER = new AmbientTickHandler();
         loader.registerClientTick(TICK_HANDLER::onTick);

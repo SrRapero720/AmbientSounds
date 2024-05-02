@@ -7,13 +7,12 @@ import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 
-import com.mojang.blaze3d.audio.OggAudioStream;
-
 import net.minecraft.Util;
 import net.minecraft.client.resources.sounds.Sound;
 import net.minecraft.client.resources.sounds.SoundInstance;
 import net.minecraft.client.resources.sounds.TickableSoundInstance;
 import net.minecraft.client.sounds.AudioStream;
+import net.minecraft.client.sounds.JOrbisAudioStream;
 import net.minecraft.client.sounds.LoopingAudioStream;
 import net.minecraft.client.sounds.LoopingAudioStream.AudioStreamProvider;
 import net.minecraft.client.sounds.SoundBufferLibrary;
@@ -454,16 +453,16 @@ public class AmbientSound extends AmbientCondition {
                         @Override
                         public AudioStream create(InputStream inputstream) throws IOException {
                             try {
-                                OggAudioStream stream = new OggAudioStream(inputstream);
+                                JOrbisAudioStream stream = new JOrbisAudioStream(inputstream);
                                 if (first && currentPropertries.randomOffset && AmbientSounds.CONFIG.playSoundWithOffset)
-                                    ((OggAudioStreamExtended) stream).setPositionRandomly(ResourceUtils.length(PackType.CLIENT_RESOURCES, resource, id));
+                                    ((OggAudioStreamExtended) stream).setPositionRandomly(ResourceUtils.length(PackType.CLIENT_RESOURCES, resource, id), id);
                                 first = false;
                                 return stream;
                             } catch (Exception e2) {
-                                return new OggAudioStream(resource.open());
+                                return new JOrbisAudioStream(resource.open());
                             }
                         }
-                    }, inputstream) : new OggAudioStream(inputstream);
+                    }, inputstream) : new JOrbisAudioStream(inputstream);
                 } catch (IOException ioexception) {
                     throw new CompletionException(ioexception);
                 }
