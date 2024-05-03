@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Random;
 
-import javax.annotation.Nullable;
 import javax.sound.sampled.AudioFormat;
 
 import org.spongepowered.asm.mixin.Final;
@@ -54,13 +53,11 @@ public abstract class OggAudioStreamMixin implements OggAudioStreamExtended {
     }
     
     @Shadow
-    @Nullable
     private Packet readPacket() throws IOException {
         throw new UnsupportedOperationException();
     }
     
     @Shadow
-    @Nullable
     private Page readPage() throws IOException {
         throw new UnsupportedOperationException();
     }
