@@ -9,6 +9,7 @@ license="LGPL-3.0-only"
     version="5.2.19"
     displayName="AmbientSounds"
     displayURL="https://modrinth.com/mod/ambientsounds"
+    displayTest="IGNORE_SERVER_VERSION"
     authors="CreativeMD"
     description='''Expands minecraft's ambient sounds.'''
 
