@@ -1,7 +1,7 @@
 {
     "pack": {
-        "description": "ambientsounds resources",
-        "pack_format": 6,
+        "description": "AmbientSounds resources",
+        "pack_format": 9,
         "_comment": "A pack_format of 6 requires json lang files. Note: we require v4 pack meta for all mods."
     }
 }

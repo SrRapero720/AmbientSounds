@@ -1,23 +1,35 @@
 modLoader="javafml"
-loaderVersion="[24,)"
-#issueTrackerURL="https://github.com/CreativeMD/AmbientSounds/issues"
-logoFile="ambientsounds.png"
-license="GNU General Public License v3.0"
+loaderVersion="[40,)"
+issueTrackerURL="https://github.com/CreativeMD/AmbientSounds/issues"
+license="LGPL-3.0-only"
 
 [[mods]]
-	modId="ambientsounds"
-	version="${file.jarVersion}"
-	displayName="Ambient Sounds"
-	side="CLIENT"
-	displayURL="https://minecraft.curseforge.com/projects/ambientsounds"
-	authors="CreativeMD"
-	clientSideOnly="true"
-	acceptableRemoteVersions="*"
-	description='''Expands minecraft's ambient sounds.'''
-	
+    modId="ambientsounds"
+    logoFile="ambientsounds.png"
+    version="5.0.16"
+    displayName="AmbientSounds"
+    displayURL="https://modrinth.com/mod/ambientsounds"
+    authors="CreativeMD"
+    description='''Expands minecraft's ambient sounds.'''
+
 [[dependencies.ambientsounds]]
-	modId="creativecore"
-	mandatory=true
-	ordering="NONE"
-	side="BOTH"
-	versionRange="[2.6.0,)"
+    modId="forge"
+    mandatory=true
+    versionRange="[40.2.14,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.ambientsounds]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.18,1.19)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.ambientsounds]]
+   modId="creativecore"
+   mandatory=true
+   ordering="NONE"
+   side="BOTH"
+   versionRange="[2.11.27,)"
+
