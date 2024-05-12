@@ -18,6 +18,8 @@ import team.creative.creativecore.ICreativeLoader;
 import team.creative.creativecore.client.ClientLoader;
 import team.creative.creativecore.client.CreativeCoreClient;
 
+import java.util.function.Consumer;
+
 @Mod(value = AmbientSounds.MODID)
 public class AmbientSounds implements ClientLoader {
     
@@ -50,7 +52,7 @@ public class AmbientSounds implements ClientLoader {
         
         TICK_HANDLER = new AmbientTickHandler();
         loader.registerClientTick(TICK_HANDLER::onTick);
-        loader.registerClientRenderGui(TICK_HANDLER::onRender);
+        loader.registerClientRenderGui(o -> TICK_HANDLER.onRender());
         loader.registerLoadLevel(TICK_HANDLER::loadLevel);
         
         loader.registerClientStarted(() -> {

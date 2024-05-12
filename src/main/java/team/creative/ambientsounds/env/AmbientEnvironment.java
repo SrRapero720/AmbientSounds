@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Position;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
@@ -82,7 +83,8 @@ public class AmbientEnvironment {
     public void analyzeUnderwater(Player player, Level level) {
         int depth = 0;
         if (player.isEyeInFluid(FluidTags.WATER)) {
-            BlockPos blockpos = BlockPos.containing(player.getEyePosition());
+            Position eyePos = player.getEyePosition();
+            BlockPos blockpos = new BlockPos(eyePos.x(), eyePos.y(), eyePos.z());
             while (level.getFluidState(blockpos).is(FluidTags.WATER)) {
                 depth++;
                 blockpos = blockpos.above();

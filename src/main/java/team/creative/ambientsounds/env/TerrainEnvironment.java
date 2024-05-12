@@ -2,6 +2,7 @@ package team.creative.ambientsounds.env;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.BlockPos.MutableBlockPos;
+import net.minecraft.core.Position;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.player.Player;
@@ -69,11 +70,13 @@ public class TerrainEnvironment {
     }
     
     public void analyzeAirPocket(AmbientEngine engine, Player player, Level level) {
-        if (scanner == null)
-            scanner = new AirPocketScanner(engine, level, BlockPos.containing(player.getEyePosition(CreativeCoreClient.getFrameTime())), x -> {
+        if (scanner == null) {
+            Position eye = player.getEyePosition(CreativeCoreClient.getFrameTime());
+            scanner = new AirPocketScanner(engine, level, new BlockPos(eye.x(), eye.y(), eye.z()), x -> {
                 airPocket = x;
                 scanner = null;
             });
+        }
     }
     
     public static int getHeightBlock(Level level, MutableBlockPos pos) {
