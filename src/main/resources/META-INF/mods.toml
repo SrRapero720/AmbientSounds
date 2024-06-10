@@ -6,7 +6,7 @@ license="LGPL-3.0-only"
 [[mods]]
     modId="ambientsounds"
     logoFile="ambientsounds.png"
-    version="5.2.19"
+    version="5.2.20"
     displayName="AmbientSounds"
     displayURL="https://modrinth.com/mod/ambientsounds"
     displayTest="IGNORE_SERVER_VERSION"
